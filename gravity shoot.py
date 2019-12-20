@@ -1,6 +1,6 @@
-﻿#
+#
 # Pirmas mano zaidimas su Pythonu
-# (c) JustAsk 2017
+# (c) JustAsk
 #
 import pygame
 import random
