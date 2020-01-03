@@ -1,57 +1,76 @@
-import pygame, os, math
-import setup, planet
+import math
+import os
+import pygame
+import random
+from pygame.math import Vector2
+
+import explosion
+import setup
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, startX, startY, my_mass, sprite_file):
+    def __init__(self, my_name, start_side, my_mass, sprite_file, speed_XY=[0, 0]):
         pygame.sprite.Sprite.__init__(self)
         self.image = pygame.transform.scale(
-            pygame.image.load(os.path.join(setup.img_folder, sprite_file)).convert(), (50, 50)
-        )
+            pygame.image.load(os.path.join(setup.img_folder, sprite_file)).convert(), (50, 50))
+        self.original_image = self.image
+        self.mini_img = pygame.transform.rotate(pygame.transform.scale(self.original_image, (25, 19)), 180)
+        self.mini_img.set_colorkey(setup.BLACK)
+
         self.image.set_colorkey(setup.BLACK)
         self.rect = self.image.get_rect()
-        self.coords = [startX, startY]
+        self.side_LR = start_side  # -1 for left side, 1 for right
+        self.coords = (random.randrange((4 + self.side_LR) / 8 * setup.WIDTH, (4 + self.side_LR * 4) / 8 * setup.WIDTH,
+                                        step=self.side_LR) * setup.zoom_scale,
+                       random.randrange(setup.HEIGHT) * setup.zoom_scale)
         self.rect.center = list(a1 / setup.zoom_scale for a1 in self.coords)
 
+        self.name = my_name
         self.mass = my_mass
-        self.speed_XY = [0, 0]
+        self.speed_XY = speed_XY
         self.max_speed_XY = [100, 100]
         self.speed_scale = 1 / 1
         self.acceleration = [0, 0]
-        self.force = [0, 0]
+        self.force_vector = [0, 0]
+        self.direction = Vector2(0, 1)  # A unit vector pointing upward.
+        self.angle = 0
+        self.last_shot_time = 0
+        self.lives = 3
         self.cross = False
+        self.hidden = False
+        self.hide_timer = 0
 
+    def check_explosion(self):
+        if self.distance_to_planet() < 500:
+            print(f'Planetfall for {self.name}.')
+            explosion.Explode_player(self)
 
-
-    def distance_to_planet(self):
-        return math.sqrt(
-            (setup.central_planet.coords[0] - self.coords[0]) ** 2 +
-            (setup.central_planet.coords[1] - self.coords[1]) ** 2
-        )
-
-
-    def force_size(self):
-        if self.distance_to_planet() < setup.central_planet.min_orbit:
-            return 0
+    def lost_life(self):
+        if self.lives > 1:
+            self.lives -= 1
+            print(f'Remaining {self.lives} live(s) for {self.name}.')
+            self.hide()
         else:
-            return setup.GRAVITY * self.mass * setup.central_planet.mass / (self.distance_to_planet() ** 2)
+            print(f'-x- {self.name} lost the game.')
+            self.lives = 0
+            self.hide()
+            setup.running = False
 
-    def update(self):
-        # change acceleration vector
-        self.force = [(coord_planet - coord_my) / self.distance_to_planet() * self.force_size()
-                       for coord_planet, coord_my in zip(setup.central_planet.coords, self.coords)]
-        self.acceleration = [current_accel + new_force/self.mass
-                             for current_accel, new_force in zip(self.acceleration, self.force)]
+    def hide(self):
+        self.hidden = True
+        self.hide_timer = pygame.time.get_ticks()
+        self.coords = (setup.WIDTH * setup.zoom_scale, setup.HEIGHT * setup.zoom_scale)
+        self.speed_XY = (0, 0)
 
-        self.speed_XY = [current_speed+current_accel for current_speed, current_accel in zip(self.speed_XY, self.acceleration)]
-        # calculated new speed, but limit by maxmin
-        self.speed_XY = [(max(0, min(abs(current_speed), max_speed)) * math.copysign(1, current_speed))
-                         for current_speed, max_speed in zip(self.speed_XY, self.max_speed_XY)]
+    def draw_lives(self, surf):
+        for i in range(self.lives):
+            img_rect = self.mini_img.get_rect()
+            img_rect.x = (4 + self.side_LR * 3.5) / 8 * setup.WIDTH + 30 * self.side_LR * i
+            img_rect.y = 5
+            surf.blit(self.mini_img, img_rect)
 
-        self.coords = [(a1 + a2 / self.speed_scale) for a1, a2 in zip(self.coords, self.speed_XY)]
-        self.rect.center = list(coord / setup.zoom_scale for coord in self.coords)
-
-        # check boundaries
+    def check_cross_boundary(self):
+        # check and cross boundaries
         if self.rect.left > setup.WIDTH:
             self.rect.right = 0
             self.cross = True
@@ -65,6 +84,48 @@ class Player(pygame.sprite.Sprite):
             self.rect.top = setup.HEIGHT
             self.cross = True
 
-        if self.cross:
+    def distance_to_planet(self):
+        return math.sqrt(sum([(setup.central_planet.coords[i] - self.coords[i]) ** 2 for i in range(2)]))
+
+    def force_size(self):
+        if self.distance_to_planet() < setup.central_planet.min_orbit:
+            return 0.01
+        else:
+            return setup.GRAVITY * self.mass * setup.central_planet.mass / (self.distance_to_planet() ** 2)
+
+    def change_acceleration_vector(self):
+        self.force_vector = [(coord_planet - coord_my) / self.distance_to_planet() * self.force_size()
+                             for coord_planet, coord_my in zip(setup.central_planet.coords, self.coords)]
+        self.direction = Vector2(0, 1)
+        self.direction.rotate_ip(self.angle)
+        self.acceleration = [self.acceleration[1] * current_direction + new_force / self.mass
+                             for current_direction, new_force in zip(self.direction, self.force_vector)]
+
+    def update(self):
+        # check and unhide if recovering after an explosion
+        self.check_explosion()
+        if self.hidden and pygame.time.get_ticks() - self.hide_timer > 2000:
+            self.hidden = False
+            self.coords = (
+            random.randrange((4 + self.side_LR) / 8 * setup.WIDTH, (4 + self.side_LR * 4) / 8 * setup.WIDTH,
+                             step=self.side_LR) * setup.zoom_scale,
+            random.randrange(setup.HEIGHT) * setup.zoom_scale)
+
+        self.change_acceleration_vector()
+
+        # calculate new speed, but limit by maxmin
+        self.speed_XY = [current_speed + accel for current_speed, accel in zip(self.speed_XY, self.acceleration)]
+        self.speed_XY = [(max(0, min(abs(current_speed), max_speed)) * math.copysign(1, current_speed))
+                         for current_speed, max_speed in zip(self.speed_XY, self.max_speed_XY)]
+
+        if not self.hidden:
+            self.coords = [(a1 + a2 / self.speed_scale) for a1, a2 in zip(self.coords, self.speed_XY)]
+
+        self.rect.center = list(coord / setup.zoom_scale for coord in self.coords)
+        self.image = pygame.transform.rotate(self.original_image, -self.angle)
+        self.draw_lives(setup.screen)
+        self.check_cross_boundary()
+
+        if self.cross and not self.hidden:
             self.coords = [a1 * setup.zoom_scale for a1 in self.rect.center]
             self.cross = False

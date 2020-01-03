@@ -1,5 +1,11 @@
-import pygame, os
-import player, planet
+import os
+import pygame
+import time
+
+import explosion
+import planet
+import player
+import shots
 
 WIDTH = 1400
 HEIGHT = 800
@@ -13,73 +19,78 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 
+global zoom_scale
 zoom_scale = 10
+min_time_between_shots = 0.5
 
 
-
-
-# initialize pygame and create window
 def initialize():
     pygame.init()
     pygame.mixer.init()
     global screen
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Gravity Shoot (JK2020)")
-    clock = pygame.time.Clock()
 
-    # set up asset folders
+    # set up image folders
     game_folder = os.path.dirname(__file__)
     global img_folder
     img_folder = os.path.join(game_folder, "img")
-    print(img_folder)
-    # Load all game graphics
+    print(f'{img_folder} loaded.')
+    print(f'Controls: ←↑→↓ with RCTRL    and    AWSD with LSHIFT')
 
+    # load all game graphics
     global background
-    global background_rect
-    global planet_img
     background = pygame.transform.scale(
-        pygame.image.load(os.path.join(img_folder, "black.png")).convert(), (WIDTH, HEIGHT)    )
+        pygame.image.load(os.path.join(img_folder, "black.png")).convert(), (WIDTH, HEIGHT))
+    global background_rect
     background_rect = background.get_rect()
-    player_img = pygame.image.load( os.path.join(img_folder, "playerShip1_blue.png") ).convert()
-    planet_img = pygame.image.load( os.path.join(img_folder, "meteorBrown_big3.png") ).convert()
+    global planet_img
+    planet_img = pygame.image.load(os.path.join(img_folder, "meteorBrown_big3.png")).convert()
 
-
-
-    global player1
-    global player2
-    global central_planet
     global all_sprites
     all_sprites = pygame.sprite.Group()
-    player1 = player.Player(startX=WIDTH / 4 * 3 * zoom_scale, startY=HEIGHT / 2 + 50 * zoom_scale, my_mass=20, sprite_file="playerShip1_blue.png")
-    player2 = player.Player(startX=WIDTH / 4 * 1 * zoom_scale, startY=HEIGHT / 2 - 50 * zoom_scale, my_mass=20, sprite_file="playerShip1_red.png")
-    central_planet = planet.Planet(WIDTH / 2 * zoom_scale, HEIGHT / 2 * zoom_scale)
+    global players
+    players = []
+    players.append(player.Player("Player1", start_side=1, my_mass=20, sprite_file="playerShip1_blue.png"))
+    players.append(player.Player("Player2", start_side=-1, my_mass=20, sprite_file="playerShip1_red.png"))
+    global central_planet
+    central_planet = planet.Planet(central_x=WIDTH / 2 * zoom_scale, central_y=HEIGHT / 2 * zoom_scale)
 
-    all_sprites.add(player1)
-    all_sprites.add(player2)
+    all_sprites.add(players[0])
+    all_sprites.add(players[1])
     all_sprites.add(central_planet)
 
+    global shots_on_screen
+    shots_on_screen = []
+    explosion.initialize_animation()
 
 
 def watch_keyboard(keystate):
-    player1.acceleration = [0, 0]
+    players[0].acceleration = [0, 0]
     if keystate[pygame.K_LEFT]:
-        player1.acceleration[0] = -1
+        players[0].angle -= 3
     if keystate[pygame.K_RIGHT]:
-        player1.acceleration[0] = 1
+        players[0].angle += 3
     if keystate[pygame.K_UP]:
-        player1.acceleration[1] = -1
+        players[0].acceleration[1] = 1
     if keystate[pygame.K_DOWN]:
-        player1.acceleration[1] = 1
+        players[0].acceleration[1] = -1
+    if keystate[pygame.K_RCTRL]:
+        if time.time() - players[0].last_shot_time > min_time_between_shots:
+            shots.Shoot_from_player(players[0])
 
-    player2.acceleration = [0, 0]
+    players[1].acceleration = [0, 0]
     if keystate[pygame.K_a]:
-        player2.acceleration[0] = -1
+        players[1].angle -= 3
     if keystate[pygame.K_d]:
-        player2.acceleration[0] = 1
+        players[1].angle += 3
     if keystate[pygame.K_w]:
-        player2.acceleration[1] = -1
+        players[1].acceleration[1] = 1
     if keystate[pygame.K_s]:
-        player2.acceleration[1] = 1
+        players[1].acceleration[1] = -1
+    if keystate[pygame.K_LSHIFT]:
+        if time.time() - players[1].last_shot_time > min_time_between_shots:
+            shots.Shoot_from_player(players[1])
 
     if keystate[pygame.K_RIGHTBRACKET]:
         central_planet.mass *= 1.05
@@ -87,11 +98,3 @@ def watch_keyboard(keystate):
     if keystate[pygame.K_LEFTBRACKET]:
         central_planet.mass /= 1.05
         print(central_planet.mass)
-
-    # if keystate[pygame.K_KP_PLUS] & (zoom_scale < 15):
-    #     zoom_scale = zoom_scale + 1
-    #     all_sprites.image = pygame.transform.scale( all_sprites.image, (5*zoom_scale, 5*zoom_scale) )
-    # if keystate[pygame.K_KP_MINUS] & (zoom_scale > 2):
-    #     zoom_scale -= 1
-    #     all_sprites.image = pygame.transform.scale( all_sprites.image, (5*zoom_scale, 5*zoom_scale) )
-
