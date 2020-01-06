@@ -89,7 +89,7 @@ def Shoot_from_player(player):
     if next_in_list < 15:
         setup.shots_on_screen.append(Laser_shot(
             start_XY=[player.coords[i] + player.direction[i] * 400 + player.speed_XY[i] * 1 for i in range(2)],
-            my_mass=0.01, new_id_number=next_in_list, sprite_file="laserBlue07.png",
+            my_mass=0.01, new_id_number=next_in_list, sprite_file='laserBlue07.png',
             speed_XY=[player.direction[i] * 100 + player.speed_XY[i] / 2 for i in range(2)],
             angle=player.angle))
         setup.all_sprites.add(setup.shots_on_screen[next_in_list])

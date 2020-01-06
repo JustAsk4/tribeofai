@@ -1,0 +1,28 @@
+############### requirements.txt #################
+####### for a "Gravity-Shooter" game by JK #######
+#
+#### Requirements without Version Specifiers #####
+#
+gravity_shoot
+setup
+planet
+player
+shots
+explosion
+-f /img
+#
+# pygame module required to be installed
+#
+pygame
+#
+#
+# 	filename	ext	size
+# 	gravity_shoot	py	853
+# 	setup		py	3,288
+# 	planet		py	740
+# 	player		py	5,596
+# 	shots		py	3,527
+# 	explosion	py	1,555
+#	+folder img with game graphics
+#
+

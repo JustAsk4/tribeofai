@@ -7,9 +7,11 @@ from pygame.math import Vector2
 import explosion
 import setup
 
+player_side_choice = {'left': -1, 'right': 1}
+
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, my_name, start_side, my_mass, sprite_file, speed_XY=[0, 0]):
+    def __init__(self, my_name, start_side, my_mass, sprite_file, speed_xy=[0, 0]):
         pygame.sprite.Sprite.__init__(self)
         self.image = pygame.transform.scale(
             pygame.image.load(os.path.join(setup.img_folder, sprite_file)).convert(), (50, 50))
@@ -19,7 +21,7 @@ class Player(pygame.sprite.Sprite):
 
         self.image.set_colorkey(setup.BLACK)
         self.rect = self.image.get_rect()
-        self.side_LR = start_side  # -1 for left side, 1 for right
+        self.side_LR = player_side_choice.get(start_side)
         self.coords = (random.randrange((4 + self.side_LR) / 8 * setup.WIDTH, (4 + self.side_LR * 4) / 8 * setup.WIDTH,
                                         step=self.side_LR) * setup.zoom_scale,
                        random.randrange(setup.HEIGHT) * setup.zoom_scale)
@@ -27,8 +29,8 @@ class Player(pygame.sprite.Sprite):
 
         self.name = my_name
         self.mass = my_mass
-        self.speed_XY = speed_XY
-        self.max_speed_XY = [100, 100]
+        self.speed_xy = speed_xy
+        self.max_speed_XY = (100, 100)
         self.speed_scale = 1 / 1
         self.acceleration = [0, 0]
         self.force_vector = [0, 0]
@@ -60,7 +62,7 @@ class Player(pygame.sprite.Sprite):
         self.hidden = True
         self.hide_timer = pygame.time.get_ticks()
         self.coords = (setup.WIDTH * setup.zoom_scale, setup.HEIGHT * setup.zoom_scale)
-        self.speed_XY = (0, 0)
+        self.speed_xy = (0, 0)
 
     def draw_lives(self, surf):
         for i in range(self.lives):
@@ -107,19 +109,19 @@ class Player(pygame.sprite.Sprite):
         if self.hidden and pygame.time.get_ticks() - self.hide_timer > 2000:
             self.hidden = False
             self.coords = (
-            random.randrange((4 + self.side_LR) / 8 * setup.WIDTH, (4 + self.side_LR * 4) / 8 * setup.WIDTH,
-                             step=self.side_LR) * setup.zoom_scale,
-            random.randrange(setup.HEIGHT) * setup.zoom_scale)
+                random.randrange((4 + self.side_LR) / 8 * setup.WIDTH, (4 + self.side_LR * 4) / 8 * setup.WIDTH,
+                                 step=self.side_LR) * setup.zoom_scale,
+                random.randrange(setup.HEIGHT) * setup.zoom_scale)
 
         self.change_acceleration_vector()
 
         # calculate new speed, but limit by maxmin
-        self.speed_XY = [current_speed + accel for current_speed, accel in zip(self.speed_XY, self.acceleration)]
-        self.speed_XY = [(max(0, min(abs(current_speed), max_speed)) * math.copysign(1, current_speed))
-                         for current_speed, max_speed in zip(self.speed_XY, self.max_speed_XY)]
+        self.speed_xy = [current_speed + accel for current_speed, accel in zip(self.speed_xy, self.acceleration)]
+        self.speed_xy = [(max(0, min(abs(current_speed), max_speed)) * math.copysign(1, current_speed))
+                         for current_speed, max_speed in zip(self.speed_xy, self.max_speed_XY)]
 
         if not self.hidden:
-            self.coords = [(a1 + a2 / self.speed_scale) for a1, a2 in zip(self.coords, self.speed_XY)]
+            self.coords = [(a1 + a2 / self.speed_scale) for a1, a2 in zip(self.coords, self.speed_xy)]
 
         self.rect.center = list(coord / setup.zoom_scale for coord in self.coords)
         self.image = pygame.transform.rotate(self.original_image, -self.angle)
