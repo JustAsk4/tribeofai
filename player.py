@@ -22,7 +22,8 @@ class Player(pygame.sprite.Sprite):
         self.image.set_colorkey(setup.BLACK)
         self.rect = self.image.get_rect()
         self.side_LR = player_side_choice.get(start_side)
-        self.coords = (random.randrange((4 + self.side_LR) / 8 * setup.WIDTH, (4 + self.side_LR * 4) / 8 * setup.WIDTH,
+        self.coords = (random.randrange((4 + self.side_LR * 2) / 8 * setup.WIDTH,
+                                        (4 + self.side_LR * 4) / 8 * setup.WIDTH,
                                         step=self.side_LR) * setup.zoom_scale,
                        random.randrange(setup.HEIGHT) * setup.zoom_scale)
         self.rect.center = list(a1 / setup.zoom_scale for a1 in self.coords)
@@ -44,25 +45,31 @@ class Player(pygame.sprite.Sprite):
 
     def check_explosion(self):
         if self.distance_to_planet() < 500:
-            print(f'Planetfall for {self.name}.')
             explosion.Explode_player(self)
 
     def lost_life(self):
         if self.lives > 1:
             self.lives -= 1
-            print(f'Remaining {self.lives} live(s) for {self.name}.')
-            self.hide()
         else:
-            print(f'-x- {self.name} lost the game.')
+            print(f'-rip- {self.name} lost this round.')
             self.lives = 0
-            self.hide()
-            setup.running = False
+        self.hide()
 
     def hide(self):
         self.hidden = True
+        self.image = pygame.transform.scale(self.image, (1, 1))
         self.hide_timer = pygame.time.get_ticks()
-        self.coords = (setup.WIDTH * setup.zoom_scale, setup.HEIGHT * setup.zoom_scale)
+        self.coords = (setup.WIDTH * setup.zoom_scale + 50, setup.HEIGHT * setup.zoom_scale + 50)
         self.speed_xy = (0, 0)
+
+    def unhide(self):
+        self.hidden = False
+        self.image = self.original_image
+        self.coords = (
+            random.randrange((4 + self.side_LR * 2) / 8 * setup.WIDTH,
+                             (4 + self.side_LR * 4) / 8 * setup.WIDTH,
+                             step=self.side_LR) * setup.zoom_scale,
+            random.randrange(setup.HEIGHT) * setup.zoom_scale)
 
     def draw_lives(self, surf):
         for i in range(self.lives):
@@ -72,7 +79,7 @@ class Player(pygame.sprite.Sprite):
             surf.blit(self.mini_img, img_rect)
 
     def check_cross_boundary(self):
-        # check and cross boundaries
+        'check for crossing screen boundaries'
         if self.rect.left > setup.WIDTH:
             self.rect.right = 0
             self.cross = True
@@ -103,28 +110,25 @@ class Player(pygame.sprite.Sprite):
         self.acceleration = [self.acceleration[1] * current_direction + new_force / self.mass
                              for current_direction, new_force in zip(self.direction, self.force_vector)]
 
-    def update(self):
-        # check and unhide if recovering after an explosion
-        self.check_explosion()
-        if self.hidden and pygame.time.get_ticks() - self.hide_timer > 2000:
-            self.hidden = False
-            self.coords = (
-                random.randrange((4 + self.side_LR) / 8 * setup.WIDTH, (4 + self.side_LR * 4) / 8 * setup.WIDTH,
-                                 step=self.side_LR) * setup.zoom_scale,
-                random.randrange(setup.HEIGHT) * setup.zoom_scale)
-
-        self.change_acceleration_vector()
-
-        # calculate new speed, but limit by maxmin
+    def change_speed_vector(self):
         self.speed_xy = [current_speed + accel for current_speed, accel in zip(self.speed_xy, self.acceleration)]
         self.speed_xy = [(max(0, min(abs(current_speed), max_speed)) * math.copysign(1, current_speed))
                          for current_speed, max_speed in zip(self.speed_xy, self.max_speed_XY)]
 
+
+    def update(self):
+        self.check_explosion()
+        if self.hidden and pygame.time.get_ticks() - self.hide_timer > 2000:
+            self.unhide()
+
+        self.change_acceleration_vector()
+        self.change_speed_vector()
+
         if not self.hidden:
             self.coords = [(a1 + a2 / self.speed_scale) for a1, a2 in zip(self.coords, self.speed_xy)]
+            self.rect.center = list(coord / setup.zoom_scale for coord in self.coords)
+            self.image = pygame.transform.rotate(self.original_image, -self.angle)
 
-        self.rect.center = list(coord / setup.zoom_scale for coord in self.coords)
-        self.image = pygame.transform.rotate(self.original_image, -self.angle)
         self.draw_lives(setup.screen)
         self.check_cross_boundary()
 

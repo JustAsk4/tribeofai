@@ -19,9 +19,6 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 
-global zoom_scale
-zoom_scale = 10
-min_time_between_shots = 0.5
 
 
 def initialize():
@@ -50,22 +47,23 @@ def initialize():
             img_folder,
             'meteorBrown_big3.png')).convert()
 
+    explosion.initialize_animation()
+
+    global zoom_scale
+    zoom_scale = 10
+    global min_time_between_shots
+    min_time_between_shots = 0.5
+    global total_score
+    total_score = [0, 0]
+
+
+def create_players():
     global all_sprites
     all_sprites = pygame.sprite.Group()
     global players
     players = []
-    players.append(
-        player.Player(
-            'Player1',
-            start_side='right',
-            my_mass=20,
-            sprite_file='playerShip1_blue.png'))
-    players.append(
-        player.Player(
-            'Player2',
-            start_side='left',
-            my_mass=20,
-            sprite_file='playerShip1_red.png'))
+    players.append(player.Player('Player1', start_side='right', my_mass=20, sprite_file='playerShip1_blue.png'))
+    players.append(player.Player('Player2', start_side='left', my_mass=20, sprite_file='playerShip1_red.png'))
     global central_planet
     central_planet = planet.Planet(
         central_x=WIDTH / 2 * zoom_scale,
@@ -77,7 +75,22 @@ def initialize():
 
     global shots_on_screen
     shots_on_screen = []
-    explosion.initialize_animation()
+
+
+
+def graph_text(message, font):
+    text_surface = font.render(message, True, WHITE)
+    return text_surface, text_surface.get_rect()
+
+def score_display():
+    global total_score
+    generated_score_text = f'{total_score[1]} : {total_score[0]}'
+    large_font = pygame.font.Font('freesansbold.ttf', 115)
+    score_object, score_rect = graph_text(generated_score_text, large_font)
+    score_rect.center = ((WIDTH / 2), (HEIGHT / 2) - 100)
+    screen.blit(score_object, score_rect)
+    pygame.display.update()
+    time.sleep(2)
 
 
 def watch_keyboard(keystate):
